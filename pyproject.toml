@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "storm-automation-framework"
+version = "0.1.0"
+description = ""
+authors = ["Lifelite <j.t.huntsman@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+google = "^3.0.0"
+google-cloud-bigquery = "^3.25.0"
+kafka = "^1.3.5"
+faust = "^1.10.4"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

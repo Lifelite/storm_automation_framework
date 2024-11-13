@@ -37,7 +37,7 @@ class StormTestCase(unittest.TestCase):
 
     def end_test_step(self, artifact: any = None, stacktrace: Exception = None):
         if not self.current_step:
-            logging.WARN("No test step to finish!")
+            logging.WARN("No storm_test step to finish!")
             return
         if stacktrace:
             self.current_step.stacktrace = stacktrace

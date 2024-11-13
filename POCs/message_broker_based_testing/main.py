@@ -7,12 +7,12 @@
 # unittest.TextTestRunner(verbosity=2).run(suite)
 #
 #
-# test = {
+# storm_test = {
 #     "name": "thing",
 #     "value": "value"
 # }
 #
-# print(test.get("name"))
+# print(storm_test.get("name"))
 # print(bool(None))
 
 

@@ -18,7 +18,7 @@ class TestResponse(TestRequest):
     test_params: dict
     success: bool
 
-test_request_topic = topic = app.topic("test.request", value_type=TestRequest)
+test_request_topic = topic = app.topic("storm_test.request", value_type=TestRequest)
 
 @app.agent(test_request_topic)
 async def run_test(requests):

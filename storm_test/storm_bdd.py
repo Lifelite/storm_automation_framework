@@ -5,6 +5,7 @@ import os
 from dataclasses import dataclass
 from enum import Enum
 from itertools import product
+from operator import indexOf
 from os import PathLike
 from pathlib import Path
 from typing import Callable, Type
@@ -56,27 +57,27 @@ class GerkinStep(Enum):
     WHEN = "WHEN"
     THEN = "THEN"
 
+
 def skip_if(func, condition: [callable] or callable):
     func._skip_condition = condition
     return func
 
-
-def given(func):
+def given(func, name: str = None):
     func._gerkin = GerkinStep.GIVEN
-    func.name = f"GIVEN {func.__name__.replace("_", " ")}"
+    func.name = f"GIVEN {name if name else func.__name__.replace("_", " ")}"
 
     return func
 
 
-def when(func):
+def when(func, name: str = None):
     func._gerkin = GerkinStep.WHEN
-    func.name = f"WHEN {func.__name__.replace("_", " ")}"
+    func.name = f"WHEN {name if name else func.__name__.replace("_", " ")}"
     return func
 
 
-def then(func):
+def then(func, name: str = None):
     func._gerkin = GerkinStep.THEN
-    func.name = f"THEN {func.__name__.replace("_", " ")}"
+    func.name = f"THEN {name if name else func.__name__.replace("_", " ")}"
     return func
 
 
@@ -108,11 +109,12 @@ class StormBehaviorResult:
 
 class StormBehaviorDrivenTest:
     _test_data = dict()
-    _test_steps = {
+    test_steps = {
         GerkinStep.GIVEN: [],
         GerkinStep.WHEN: [],
         GerkinStep.THEN: [],
     }
+    _scenario_methods: [Scenario]
     scenarios: Scenario or [Scenario] or None = []
     preconditions = None
     postconditions = None
@@ -134,65 +136,95 @@ class StormBehaviorDrivenTest:
 
 
 
-
     @classmethod
-    def run_decision_matrix(cls, test_data=None):
-        current_data_state = test_data
+    def _get_scenarios(cls):
         test_class = cls()
         test_class.test_status = StormTestResult.IN_PROGRESS
         for step_name, step_method in inspect.getmembers(test_class, inspect.ismethod):
             if hasattr(step_method, "_gerkin"):
                 gerkin_step = getattr(step_method, "_gerkin")
-                test_class._test_steps[gerkin_step].append(
+                test_class.test_steps[gerkin_step].append(
                     StormTestStepObject(
                         name=getattr(step_method, 'name', step_method.__name__),
                         method=step_method,
                         status=StormTestResult.NOT_RUN,
                     )
                 )
+        return test_class
+
+    @classmethod
+    def _run_step(cls, step: StormTestStepObject):
+        step.status = StormTestResult.IN_PROGRESS
+        try:
+            step_data = step.method(cls._test_data)
+            cls._test_data = step_data if step_data else cls._test_data
+            step.status = StormTestResult.PASS
+        except Exception as e:
+            step.status = StormTestResult.FAIL
+            step.error = str(e)
+        return step
+
+
+
+    @classmethod
+    def run_scenario(cls):
+        test_class = cls._get_scenarios()
+        run_result = {}
+        for step_type in test_class.test_steps:
+            scenario_string = ""
+            step_type_result = StormTestResult.IN_PROGRESS
+            for step in test_class.test_steps[step_type]:
+                if indexOf(test_class.test_steps[step_type], step) > 0:
+                    scenario_string += step.name.replace(step_type.value, "\nAND")
+                else:
+                    scenario_string = step.name
+                test_class._run_step(step)
+                if step_type_result == StormTestResult.FAIL:
+                    continue
+                else:
+                    step_type_result = StormTestResult.PASS
+            run_result[step_type] = {
+                "name": scenario_string,
+                "result": step_type_result,
+            }
+        return StormBehaviorResult(
+            scenario=Scenario(
+                run_result[GerkinStep.GIVEN]["name"],
+                run_result[GerkinStep.WHEN]["name"],
+                run_result[GerkinStep.THEN]["name"]
+            ),
+            result=StormTestResult.PASS if (
+                    run_result[GerkinStep.GIVEN]["result"] == StormTestResult.PASS
+                    and run_result[GerkinStep.WHEN]["result"] == StormTestResult.PASS
+                    and run_result[GerkinStep.THEN]["result"] == StormTestResult.PASS
+            ) else StormTestResult.FAIL,
+        )
+
+
+    @classmethod
+    def run_decision_matrix(cls, test_data=None):
+        current_data_state = test_data
+        test_class = cls._get_scenarios()
 
         for scenario_given, scenario_when in product(
-                test_class._test_steps[GerkinStep.GIVEN],
-                test_class._test_steps[GerkinStep.WHEN],
+                test_class.test_steps[GerkinStep.GIVEN],
+                test_class.test_steps[GerkinStep.WHEN],
         ):
             if cls._check_condition(scenario_given, scenario_when):
                 continue
-            scenario_given.status = StormTestResult.IN_PROGRESS
-            scenario_when.status = StormTestResult.IN_PROGRESS
-            try:
-                current_data_state = scenario_given.method(current_data_state)
-                scenario_given.status = StormTestResult.PASS
-            except Exception as e:
-                scenario_given.status = StormTestResult.FAIL
-                scenario_given.error = str(e)
-            try:
-                current_data_state = scenario_when.method(current_data_state)
-                scenario_when.status = StormTestResult.PASS
-            except Exception as e:
-                scenario_when.status = StormTestResult.FAIL
-                scenario_when.error = str(e)
+            scenario_given = test_class._run_step(scenario_given)
+            scenario_when = test_class._run_step(scenario_when)
 
             then_senarios = []
 
-            for scenario_then in test_class._test_steps[GerkinStep.THEN]:
+            for scenario_then in test_class.test_steps[GerkinStep.THEN]:
                 if (
-                    cls._check_condition(scenario_then, scenario_when)
-                    or
-                    cls._check_condition(scenario_then, scenario_given)
-                    ):
+                        cls._check_condition(scenario_then, scenario_when)
+                        or
+                        cls._check_condition(scenario_then, scenario_given)
+                ):
                     continue
-                scenario_then.status = StormTestResult.IN_PROGRESS
-                try:
-                    then_result = scenario_then.method(current_data_state)
-                    if isinstance(then_result, bool) and then_result or then_result is None:
-                        scenario_then.status = StormTestResult.PASS
-                    elif getattr(scenario_then.method, "_can_fail", False):
-                        scenario_then.status = StormTestResult.SKIPPED
-                    else:
-                        scenario_then.status = StormTestResult.FAIL
-                except Exception as e:
-                    scenario_then.status = StormTestResult.FAIL
-                    scenario_then.error = str(e)
+                scenario_then = test_class._run_step(scenario_then)
                 then_senarios.append(scenario_then)
 
             then_string = then_senarios[0].name
@@ -225,7 +257,7 @@ class StormBehaviorDrivenTest:
     def validate(cls, name: str, test: bool, fail_msg=None):
         """
         Used to assert if an object is true.
-        If so, adds storm_test and passes.
+        If so, adds test and passes.
         If not, adds to failures with fail message.
         """
         return test if test else f"{test} FAILED, REASON: {fail_msg}"

@@ -16,7 +16,7 @@ from tests.test import TestTheThing
 
 if __name__ == '__main__':
     #TestTheThing.run()
-    BDDTest.run_decision_matrix()
+    BDDTest.run_scenario()
 
 
 

@@ -1,4 +1,4 @@
-from storm_test.storm import StormTestSuite
+from storm_test.storm import StormTestSuite, StormTestRunner
 from tests.bdd_test import BDDTest
 from tests.test import TestTheThing
 
@@ -11,12 +11,21 @@ from tests.test import TestTheThing
 
 
 
+test_suite = StormTestSuite("Testing")
+
+test_suite.tests = [
+    TestTheThing,
+]
+
+
+
 
 
 
 if __name__ == '__main__':
-    #TestTheThing.run()
-    BDDTest.run_scenario()
+    TestTheThing.run()
+    StormTestRunner(test_suites=[test_suite]).run_tests()
+    # BDDTest.run_scenario()
 
 
 

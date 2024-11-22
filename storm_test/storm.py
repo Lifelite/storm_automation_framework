@@ -1,4 +1,5 @@
 import dataclasses
+import datetime
 import importlib
 import inspect
 import logging
@@ -28,6 +29,7 @@ class Scenario:
         self.when = when
         self.then = then
 
+
 @dataclass
 class StormTestStepObject:
     name: str
@@ -36,6 +38,7 @@ class StormTestStepObject:
     return_data = None
     error: str = None
 
+
 @dataclass
 class StormTestObject:
     name: str
@@ -43,6 +46,7 @@ class StormTestObject:
     status: StormTestResult
     error: str = None
     steps: list[StormTestStepObject] = None
+
 
 @dataclass
 class TestResult:
@@ -57,12 +61,14 @@ class TestConfig:
     parameters: [any]
     configurations: [any]
 
+
 def test_case(func, dep: Callable = None):
     func._dependency = dep
     func._test_case = True
     return func
 
-def iter_test_case(func, dep: Callable = None, iter_object:list[dict]=None):
+
+def iter_test_case(func, dep: Callable = None, iter_object: list[dict] = None):
     func._dependency = dep
     func._iter_test_case = True
     func.test_funcs = []
@@ -76,9 +82,7 @@ def iter_test_case(func, dep: Callable = None, iter_object:list[dict]=None):
             func.test_funcs.append(iterated_test_case)
     return func
 
-            # test_funcs.append(iterated_test_case)
-
-
+    # test_funcs.append(iterated_test_case)
 
 
 def set_up(func):
@@ -113,22 +117,18 @@ class StormTest:
     name = None
 
     @classmethod
-    @abstractmethod
     def set_up(cls):
         pass
 
     @classmethod
-    @abstractmethod
     def tear_down(cls):
         pass
 
     @classmethod
-    @abstractmethod
     def set_up_each(cls):
         pass
 
     @classmethod
-    @abstractmethod
     def tear_down_each(cls):
         pass
 
@@ -215,13 +215,13 @@ class StormTestSuite:
             self,
             name: str,
             tests: list[StormTest] = None,
-            #test_dir: PathLike = os.path.join(os.getcwd(), "tests"),
+            # test_dir: PathLike = os.path.join(os.getcwd(), "tests"),
             test_data: dict = None,
     ):
         self.tests = tests or []
         self.name = name
         self.test_results = []
-        #self.test_dir = test_dir
+        # self.test_dir = test_dir
         self.test_data = test_data
 
         # if self.test_dir:
@@ -271,9 +271,6 @@ class StormTestSuite:
             # ]
 
 
-
-
-
 class StormTestRunner:
     def __init__(
             self,
@@ -282,6 +279,13 @@ class StormTestRunner:
             test_data: dict = None,
             reporting: StormReporter = None,
     ):
+        #Setup logging
+
+        time_stamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+        log_path = Path.cwd() / "logs" / f"storm_test_{time_stamp}.log"
+        logging.basicConfig(level=logging.INFO, filename=log_path, filemode="w+")
+
+
         self.test_suites = test_suites or []
         if test_cases:
             self.test_suites.append(
@@ -292,6 +296,7 @@ class StormTestRunner:
         self.test_results = []
 
     def run_tests(self, test_data=None):
+        logging.info("Starting test run")
         if self.test_suites:
             for test_suite in self.test_suites:
                 logging.info(f"Running test suite {test_suite.name}")
@@ -309,8 +314,7 @@ class StormTestRunner:
 
         else:
             logging.warning("No test suites defined")
-
-
+        logging.info("Finished test run")
 
         # print(
         #     f"Test results: "
@@ -324,8 +328,7 @@ class StormTestRunner:
         #     f"Failed:{self.test_results.failed} "
         #     f"Skipped:{self.test_results.skipped}"
         # )
-            #TODO: write out test runner portion
-
+        # TODO: write out test runner portion
 
         # self.test_results.not_run = [
         #     t.result().name

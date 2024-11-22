@@ -23,7 +23,7 @@ test_suite.tests = [
 
 
 if __name__ == '__main__':
-    TestTheThing.run()
+    #TestTheThing.run()
     StormTestRunner(test_suites=[test_suite]).run_tests()
     # BDDTest.run_scenario()
 
